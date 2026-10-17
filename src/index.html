@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#f7f7f2"><title>Free Gödel algebras dually</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<header class="topbar"><a class="brand" href="./"><span aria-hidden="true" class="brand-mark">⋖</span>Free Gödel algebras dually</a><div class="file-actions"><span id="saved" role="status">Saved on this device</span><button id="open">Open</button><button id="save" class="dark">Save file ↗</button><input id="file" type="file" accept=".json,application/json" hidden></div></header>
+<main>
+  <div class="document-bar"><div class="document-tools"><label for="examples">Example</label><select id="examples"><option value="">Choose…</option><option value="boolean2">Powerset · 2 atoms</option><option value="boolean3">Powerset · 3 atoms</option><option value="chain">Chain · 4 points</option><option value="antichain">Antichain · 4 points</option></select><button id="blank">＋ Blank</button><button id="undo" aria-label="Undo" title="Undo (Ctrl+Z)">↶</button><button id="redo" aria-label="Redo" title="Redo (Ctrl+Shift+Z)">↷</button></div></div>
+  <div class="workspace">
+    <section class="panel input-panel" aria-label="Input poset">
+      <div class="panel-heading"><div><h1>Input poset</h1><span id="input-count" class="count"></span></div><div class="panel-actions"><button id="delete-poset" class="delete">Delete poset</button><button id="arrange">Arrange</button></div></div>
+      <div class="panel-tools"><div class="tools" role="toolbar" aria-label="Drawing tools"><button data-tool="move" aria-pressed="true" title="Move (V)"><svg class="tool-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V7a2 2 0 0 0-4 0M14 10V5a2 2 0 0 0-4 0v6M10 10.5V7a2 2 0 0 0-4 0v9M18 8a2 2 0 0 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-1-6-3l-4.6-6a2 2 0 0 1 3.1-2.5L6 12"/></svg> Move <kbd>V</kbd></button><button data-tool="point" aria-pressed="false" title="Point (N)">⊙ Point <kbd>N</kbd></button><button data-tool="order" aria-pressed="false" title="Order (E)">↗ Order <kbd>E</kbd></button></div></div>
+      <div class="canvas-wrap"><svg id="input-canvas" viewBox="0 0 500 500" role="group" aria-label="Editable input Hasse diagram"><defs><pattern id="grid" width="25" height="25" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r="1" fill="#dce2d8"/></pattern></defs><rect class="canvas-bg" x="-200000" y="-200000" width="400000" height="400000" fill="url(#grid)"/><g class="edges"></g><g class="points"></g><g id="order-preview" pointer-events="none"></g></svg><div id="input-empty" class="empty" hidden><button id="add-first">＋ Add a point</button></div></div>
+      <div class="canvas-controls"><label><input id="snap" type="checkbox"> Snap</label><label><input id="input-labels" type="checkbox" checked> Labels</label><div class="zoom" aria-label="Input zoom"><button data-zoom="input:out" aria-label="Zoom input out">−</button><button data-fit="input">Fit</button><button data-zoom="input:in" aria-label="Zoom input in">＋</button></div><button data-export="input" title="Save input diagram as PNG">PNG ↓</button></div>
+    </section>
+    <section class="panel output-panel" aria-label="Output root system">
+      <div class="panel-heading"><div><h2>Root system</h2><span id="output-count" class="element-count" aria-live="polite"></span></div><span class="limit">Limit: 200 points</span></div>
+      <div class="panel-tools output-tools"><span>Chain color = color of its least element</span><button id="clear-selection" disabled>Clear selection</button></div>
+      <div class="canvas-wrap"><svg id="output-canvas" viewBox="0 0 700 500" role="group" aria-label="Root system of nonempty chains"><rect class="canvas-bg" x="-200000" y="-200000" width="400000" height="400000" fill="#fafbf7"/><g class="edges"></g><g class="points"></g></svg><div id="output-notice" class="empty" hidden><p id="output-message"></p></div></div>
+      <div class="canvas-controls"><label><input id="chain-labels" type="checkbox"> Chain labels</label><div class="zoom" aria-label="Output zoom"><button data-zoom="output:out" aria-label="Zoom output out">−</button><button data-fit="output">Fit</button><button data-zoom="output:in" aria-label="Zoom output in">＋</button></div><button data-export="output" title="Save root system as PNG">PNG ↓</button></div>
+    </section>
+  </div>
+  <div class="statusbar"><span id="status" role="status" aria-live="polite">Drag points to move. Hover to inspect; click to pin.</span><span>Higher means greater · Drag empty space to pan</span></div>
+  <div class="details-row"><section class="inspector"><div class="section-heading"><h2>Inspector</h2><button id="delete" class="delete" disabled>Delete selection</button></div><div id="inspector-content"><p>Hover or select a point.</p></div></section><section class="legend"><div class="section-heading"><h2>Base hues</h2><span id="hue-count" class="count"></span></div><div id="hue-list"></div></section></div>
+</main>
+<script type="module" src="app.mjs"></script>
+</body></html>
