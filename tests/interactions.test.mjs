@@ -81,6 +81,56 @@ test('app initializes a colored diamond with eleven chains and two base hues', (
   assert.equal($('output-canvas').querySelectorAll('.point').length, 11);
 });
 
+test('chain-length number and All checkbox save, undo, and remember the number across switching and reloading', async () => {
+  const model = core.example('chain'), { $, stored } = launch(model);
+  assert.equal($('all-chain-lengths').checked, true);
+  assert.equal($('max-chain-length').disabled, true); assert.equal($('max-chain-length').value, 'All');
+  assert.equal($('max-chain-length').getAttribute('type'), 'text');
+  $('all-chain-lengths').checked = false; await $('all-chain-lengths').emit('change');
+  assert.equal($('max-chain-length').disabled, false); assert.equal($('max-chain-length').value, '1');
+  assert.equal($('max-chain-length').getAttribute('type'), 'number'); assert.equal($('output-count').textContent, '4 elements');
+  $('max-chain-length').value = '2'; await $('max-chain-length').emit('change');
+  assert.equal($('output-count').textContent, '10 elements'); assert.equal(stored().maxChainLength, 2);
+  assert.deepEqual(stored().nodes, model.nodes); assert.deepEqual(stored().edges, model.edges);
+  assert.ok($('output-canvas').querySelectorAll('.point').every(n => JSON.parse(n.dataset.id).length <= 2));
+  await $('undo').emit('click'); assert.equal($('max-chain-length').value, '1'); assert.equal($('output-count').textContent, '4 elements');
+  await $('redo').emit('click'); assert.equal($('max-chain-length').value, '2');
+  $('all-chain-lengths').checked = true; await $('all-chain-lengths').emit('change');
+  assert.equal($('max-chain-length').disabled, true); assert.equal($('max-chain-length').value, 'All');
+  assert.equal($('output-count').textContent, '15 elements'); assert.equal(stored().maxChainLength, null); assert.equal(stored().lastChainLength, 2);
+  const reloaded = launch(stored()); assert.equal(reloaded.$('all-chain-lengths').checked, true); assert.equal(reloaded.$('max-chain-length').value, 'All'); assert.equal(reloaded.$('max-chain-length').disabled, true);
+  reloaded.$('all-chain-lengths').checked = false; await reloaded.$('all-chain-lengths').emit('change'); assert.equal(reloaded.$('max-chain-length').value, '2'); assert.equal(reloaded.$('output-count').textContent, '10 elements');
+  $('all-chain-lengths').checked = false; await $('all-chain-lengths').emit('change');
+  $('examples').value = 'boolean3'; await $('examples').emit('change');
+  assert.equal($('max-chain-length').value, '2'); assert.equal($('output-count').textContent, '27 elements');
+  await $('delete-poset').emit('click'); assert.equal($('max-chain-length').value, '2'); assert.equal($('output-count').textContent, '0 elements');
+});
+
+test('length restriction recovers an oversized output and All restores the limit warning', async () => {
+  const { $ } = launch(core.example('chain8'));
+  assert.equal($('output-count').textContent, 'More than 200 elements');
+  $('all-chain-lengths').checked = false; await $('all-chain-lengths').emit('change');
+  $('max-chain-length').value = '4'; await $('max-chain-length').emit('change');
+  assert.equal($('output-count').textContent, '162 elements'); assert.equal($('output-notice').hidden, true);
+  $('all-chain-lengths').checked = true; await $('all-chain-lengths').emit('change');
+  assert.equal($('output-count').textContent, 'More than 200 elements'); assert.equal($('output-notice').hidden, false);
+});
+
+test('invalid chain-length numbers leave the saved restriction and diagram intact', async () => {
+  const { $, stored } = launch();
+  $('all-chain-lengths').checked = false; await $('all-chain-lengths').emit('change');
+  $('max-chain-length').value = '2'; await $('max-chain-length').emit('change');
+  const before = stored();
+  for (const value of ['', '0', '-2', '1.5', 'invalid', '9007199254740992']) {
+    $('max-chain-length').value = value; await $('max-chain-length').emit('change');
+    assert.deepEqual(stored(), before); assert.equal($('output-count').textContent, '9 elements');
+    assert.equal($('max-chain-length').getAttribute('aria-invalid'), 'true'); assert.match($('status').textContent, /positive whole number/);
+  }
+  $('max-chain-length').value = '1000'; await $('max-chain-length').emit('change');
+  assert.equal($('output-count').textContent, '11 elements'); assert.equal($('max-chain-length').getAttribute('aria-invalid'), 'false');
+  assert.equal($('status').textContent, ''); assert.equal(stored().maxChainLength, 1000);
+});
+
 test('canvas resize reflows components without changing the input, history, or pinned chain', async () => {
   const model = core.empty(); model.nodes = Array.from({ length: 12 }, (_, i) => ({ id: `p${i}`, label: `${i}`, x: i * 60, y: 0, pigment: null }));
   const { $, point, stored, resizeOutput } = launch(core.withPigments(model)), before = stored();

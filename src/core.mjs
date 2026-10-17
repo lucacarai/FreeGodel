@@ -88,22 +88,32 @@ export function coloring(model, order = closure(model)) {
 
 // Every chain has a unique minimum. Count by that minimum using ALL strict
 // comparisons, not only covers; this includes chains that skip levels.
-export function chainCount(model, limit = OUTPUT_LIMIT, order = closure(model)) {
-  if (model.nodes.length > limit) return limit + 1;
+export function posetHeight(model, order = closure(model)) {
   const memo = new Map();
-  function count(id) {
-    if (!memo.has(id)) {
-      let total = 1;
-      for (const q of order.ids) if (q !== id && order.le(id, q)) {
-        total = Math.min(limit + 1, total + count(q));
-        if (total > limit) break;
-      }
-      memo.set(id, total);
-    }
+  function height(id) {
+    if (!memo.has(id)) memo.set(id, 1 + Math.max(0, ...order.ids.filter(q => q !== id && order.le(id, q)).map(height)));
     return memo.get(id);
   }
+  return Math.max(0, ...order.ids.map(height));
+}
+
+export function chainCount(model, limit = OUTPUT_LIMIT, order = closure(model)) {
+  if (model.nodes.length > limit) return limit + 1;
+  const maxLength = Math.min(model.maxChainLength ?? model.nodes.length, model.nodes.length);
+  const memo = Array.from({ length: maxLength + 1 }, () => new Map());
+  function count(id, remaining) {
+    if (!memo[remaining].has(id)) {
+      let total = 1;
+      if (remaining > 1) for (const q of order.ids) if (q !== id && order.le(id, q)) {
+        total = Math.min(limit + 1, total + count(q, remaining - 1));
+        if (total > limit) break;
+      }
+      memo[remaining].set(id, total);
+    }
+    return memo[remaining].get(id);
+  }
   let total = 0;
-  for (const id of order.ids) { total += count(id); if (total > limit) return limit + 1; }
+  for (const id of order.ids) { total += count(id, maxLength); if (total > limit) return limit + 1; }
   return total;
 }
 
@@ -111,10 +121,12 @@ export function rootSystem(model, limit = OUTPUT_LIMIT, order = closure(model)) 
   const count = chainCount(model, limit, order);
   if (count > limit) return { count, exceeded: true, nodes: [], edges: [] };
   const nodes = [], edges = [], sorted = [...model.nodes].sort((a, b) => a.x - b.x || a.id.localeCompare(b.id));
+  const maxLength = model.maxChainLength ?? model.nodes.length;
   function extend(chain, parent = null) {
     const id = JSON.stringify(chain), node = { id, chain, minimum: chain[0], parent, x: 0, y: 0 };
     nodes.push(node);
     if (parent) edges.push([id, parent]);
+    if (chain.length >= maxLength) return;
     for (const n of sorted) if (n.id !== chain[0] && order.le(n.id, chain[0])) extend([n.id, ...chain], id);
   }
   for (const n of sorted) extend([n.id]);
@@ -226,7 +238,7 @@ export function arrange(model) {
   return next;
 }
 
-export const empty = () => ({ format: 'godel-studio', version: 1, title: 'Untitled poset', nodes: [], edges: [] });
+export const empty = () => ({ format: 'godel-studio', version: 1, title: 'Untitled poset', maxChainLength: null, lastChainLength: 1, nodes: [], edges: [] });
 
 export function example(kind = 'boolean2') {
   const m = empty();
@@ -239,7 +251,7 @@ export function example(kind = 'boolean2') {
       for (let bit = 0; bit < size; bit++) if (!(mask & 2 ** bit)) m.edges.push([`p${mask}`, `p${mask | 2 ** bit}`]);
     }
   } else {
-    const size = kind === 'chain8' ? 8 : 4;
+    const size = ({ chain5: 5, chain6: 6, chain8: 8 })[kind] ?? 4;
     m.title = kind === 'antichain' ? 'Four-point antichain' : `${size}-point chain`;
     m.nodes = Array.from({ length: size }, (_, i) => ({ id: `p${i}`, label: String.fromCharCode(97 + i), x: i * 80, y: 0, pigment: null }));
     if (kind !== 'antichain') m.edges = m.nodes.slice(1).map((n, i) => [m.nodes[i].id, n.id]);
@@ -254,6 +266,12 @@ export function validate(input) {
   if (input.nodes.length > OUTPUT_LIMIT) throw Error('Each input point produces a singleton chain. More than 200 input points cannot fit the output limit.');
   const ids = new Set();
   const next = empty(); next.title = typeof input.title === 'string' ? input.title.slice(0, 100) : next.title;
+  const maxChainLength = input.format === 'godel-studio' ? input.maxChainLength ?? null : null;
+  if (maxChainLength !== null && (!Number.isSafeInteger(maxChainLength) || maxChainLength < 1)) throw Error('Maximum chain length must be a positive whole number, or All.');
+  next.maxChainLength = maxChainLength;
+  const lastChainLength = input.format === 'godel-studio' ? input.lastChainLength ?? maxChainLength ?? 1 : 1;
+  if (!Number.isSafeInteger(lastChainLength) || lastChainLength < 1) throw Error('The saved chain length must be a positive whole number.');
+  next.lastChainLength = lastChainLength;
   for (const n of input.nodes) {
     if (!n || typeof n.id !== 'string' || !n.id || n.id.length > 150 || ids.has(n.id) || typeof n.label !== 'string' || n.label.length > 80 || !Number.isFinite(n.x) || !Number.isFinite(n.y) || Math.abs(n.x) > 100000 || Math.abs(n.y) > 100000 || (input.format === 'godel-studio' && n.pigment != null && !/^#[0-9a-f]{6}$/i.test(n.pigment))) throw Error('The file contains an invalid or duplicate point.');
     ids.add(n.id); next.nodes.push({ id: n.id, label: n.label, x: n.x, y: n.y, pigment: input.format === 'godel-studio' ? n.pigment ?? null : null });

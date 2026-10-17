@@ -124,6 +124,12 @@ function drawPanel(panel) {
 }
 
 function render() {
+  const allLengths = model.maxChainLength === null;
+  $('all-chain-lengths').checked = allLengths;
+  $('max-chain-length').setAttribute('type', allLengths ? 'text' : 'number');
+  $('max-chain-length').disabled = allLengths;
+  $('max-chain-length').value = allLengths ? 'All' : String(model.maxChainLength ?? model.lastChainLength ?? 1);
+  $('max-chain-length').setAttribute('aria-invalid', 'false');
   $('input-count').textContent = `${model.nodes.length} point${model.nodes.length === 1 ? '' : 's'}`;
   $('output-count').textContent = forest.exceeded ? 'More than 200 elements' : `${forest.count} element${forest.count === 1 ? '' : 's'}`;
   $('output-count').style.color = forest.exceeded ? '#a05640' : '';
@@ -132,7 +138,7 @@ function render() {
   $('input-empty').hidden = !!model.nodes.length;
   $('output-notice').hidden = !forest.exceeded && !!model.nodes.length;
   $('output-notice').classList.toggle('limit-error', forest.exceeded);
-  $('output-message').textContent = forest.exceeded ? 'This poset produces more than 200 points. Remove points or order relations to display the root system.' : 'Add points to construct the root system.';
+  $('output-message').textContent = forest.exceeded ? 'This poset produces more than 200 points. Remove points or order relations, or lower the maximum chain length.' : 'Add points to construct the root system.';
   document.querySelectorAll('[data-export]').forEach(b => b.disabled = exporting || !points(b.dataset.export).length);
   drawPanel('input'); drawPanel('output'); drawLegend(); refreshInteraction();
 }
@@ -341,11 +347,26 @@ document.querySelectorAll('[data-export]').forEach(b => b.onclick = () => downlo
 $('clear-selection').onclick = clearSelection; $('delete').onclick = deleteSelection;
 $('undo').onclick = () => history(true); $('redo').onclick = () => history(false);
 $('arrange').onclick = () => commit(arrange(model), 'Points arranged.', true);
-function clearPoset() { clearSelection(); commit(empty(), 'Click empty space to add a point.', true); setTool('point'); }
+function clearPoset() { clearSelection(); const next = empty(); next.maxChainLength = model.maxChainLength; next.lastChainLength = model.lastChainLength; commit(next, 'Click empty space to add a point.', true); setTool('point'); }
 $('blank').onclick = clearPoset;
 $('delete-poset').onclick = clearPoset;
 $('add-first').onclick = () => { const v = views.input; addPoint(v.x + v.w / 2, v.y + v.h / 2); };
-$('examples').onchange = e => { if (!e.target.value) return; selected = null; commit(example(e.target.value), 'Example loaded.', true); e.target.value = ''; setTool('move'); };
+$('examples').onchange = e => { if (!e.target.value) return; selected = null; const next = example(e.target.value); next.maxChainLength = model.maxChainLength; next.lastChainLength = model.lastChainLength; commit(next, 'Example loaded.', true); e.target.value = ''; setTool('move'); };
+$('all-chain-lengths').onchange = e => {
+  const next = copy(model);
+  next.lastChainLength = model.maxChainLength ?? model.lastChainLength ?? 1;
+  next.maxChainLength = e.target.checked ? null : next.lastChainLength;
+  commit(next); status('');
+};
+$('max-chain-length').onchange = e => {
+  if ($('all-chain-lengths').checked) return;
+  const length = Number(e.target.value);
+  if (!Number.isSafeInteger(length) || length < 1) {
+    e.target.setAttribute('aria-invalid', 'true'); status('Enter a positive whole number for the maximum chain length.', true); return;
+  }
+  const next = copy(model); next.maxChainLength = length; next.lastChainLength = length;
+  commit(next); e.target.setAttribute('aria-invalid', 'false'); status('');
+};
 $('input-labels').onchange = () => { drawPanel('input'); refreshInteraction(); };
 $('chain-labels').onchange = () => { rebuild(); drawPanel('output'); refreshInteraction(); fit('output'); };
 $('save').onclick = download; $('open').onclick = () => $('file').click();

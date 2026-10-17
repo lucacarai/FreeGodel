@@ -12,6 +12,8 @@ For first publication, create the public `lucacarai/FreeGodel` repository and pu
 
 For updates, commit and push the app changes to `main`. The workflow republishes them automatically.
 
+The build versions the stylesheet, app script, and imported construction module together using a source-content hash. This prevents a newly deployed app from reusing an older cached coloring module. A page already open during an update still needs a reload; Ctrl+F5 forces a fresh page on Windows.
+
 All asset links are relative. To check the published path locally, run `node scripts/build.mjs`, then `node server.mjs --base=/FreeGodel/` and open http://127.0.0.1:4174/FreeGodel/. If the usual preview is already using that port, set `PORT` to another available port for this check.
 
 Saved posets are browser-local. Use **Save file** in the local preview and **Open** on the published app to transfer a drawing.

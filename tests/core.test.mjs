@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { OUTPUT_LIMIT, CHAIN_HUE_DECAY, copy, closure, covers, irreducibles, coloring, withPigments, mixPigments, chainCount, rootSystem, layoutRootSystem, addRelation, removeNode, validate, arrange, constrainPosition, empty, example } from '../src/core.mjs';
+import { OUTPUT_LIMIT, CHAIN_HUE_DECAY, copy, closure, covers, irreducibles, coloring, withPigments, mixPigments, chainCount, rootSystem, posetHeight, layoutRootSystem, addRelation, removeNode, validate, arrange, constrainPosition, empty, example } from '../src/core.mjs';
 
 test('powersets use exactly their atoms as generators; bottom is white', () => {
   for (const size of [1, 2, 3]) {
@@ -26,6 +26,49 @@ test('all nonempty chains, including skipped levels, appear with the correct suf
     assert.equal(n.parent, n.chain.length > 1 ? JSON.stringify(n.chain.slice(1)) : null);
     if (n.parent) assert.ok(output.nodes.find(q => q.id === n.parent).y < n.y);
   }
+});
+
+test('a chain-length bound produces the induced upset with the correct suffix covers and depth', () => {
+  const model = example('chain'), full = rootSystem(model);
+  assert.equal(posetHeight(model), 4); assert.equal(posetHeight(empty()), 0);
+  for (const [maxChainLength, expected] of [[1, 4], [2, 10], [3, 14], [4, 15], [200, 15]]) {
+    const bounded = { ...model, maxChainLength }, forest = rootSystem(bounded), ids = new Set(forest.nodes.map(n => n.id));
+    assert.equal(chainCount(bounded), expected); assert.equal(forest.count, expected);
+    assert.deepEqual([...ids].sort(), full.nodes.filter(n => n.chain.length <= maxChainLength).map(n => n.id).sort());
+    assert.deepEqual(forest.edges, full.edges.filter(([a, b]) => ids.has(a) && ids.has(b)));
+    const order = closure({ nodes: forest.nodes, edges: forest.edges });
+    for (const n of forest.nodes) {
+      assert.ok(n.chain.length <= maxChainLength);
+      assert.equal(forest.nodes.filter(q => order.le(n.id, q.id)).length, n.chain.length);
+      if (n.parent) assert.ok(ids.has(n.parent));
+    }
+  }
+});
+
+test('bound is applied before the output limit, including the sixteen-element Boolean algebra', () => {
+  const model = example('boolean4');
+  assert.equal(posetHeight(model), 5); assert.equal(rootSystem(model).exceeded, true);
+  for (const [maxChainLength, expected] of [[1, 16], [2, 81], [3, 191], [4, 275], [5, 299]]) {
+    const bounded = { ...model, maxChainLength }, forest = rootSystem(bounded);
+    assert.equal(chainCount(bounded, 1000), expected);
+    assert.equal(forest.exceeded, expected > OUTPUT_LIMIT);
+    assert.equal(forest.nodes.length, expected > OUTPUT_LIMIT ? 0 : expected);
+  }
+  const chain = { ...example('chain8'), maxChainLength: 4 };
+  assert.equal(rootSystem(chain).count, 162);
+  assert.equal(rootSystem({ ...chain, maxChainLength: 1 }).count, 8);
+});
+
+test('chain-length choice survives file roundtrip and older files default to All', () => {
+  const model = { ...example(), maxChainLength: 2 };
+  assert.deepEqual(validate(JSON.parse(JSON.stringify(model))), model);
+  const legacy = copy(model); delete legacy.maxChainLength;
+  assert.equal(validate(legacy).maxChainLength, null);
+  for (const value of [0, -1, 1.5, '2', Number.MAX_SAFE_INTEGER + 1, Infinity]) assert.throws(() => validate({ ...model, maxChainLength: value }), /Maximum chain length/);
+  assert.equal(validate({ ...model, maxChainLength: 1000 }).maxChainLength, 1000);
+  const all = { ...model, maxChainLength: null, lastChainLength: 7 };
+  assert.deepEqual(validate(JSON.parse(JSON.stringify(all))), all);
+  for (const value of [0, -1, 1.5, '2', Infinity]) assert.throws(() => validate({ ...all, lastChainLength: value }), /saved chain length/);
 });
 
 test('larger components are placed to the left regardless of input positions', () => {
