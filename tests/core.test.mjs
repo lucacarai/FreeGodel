@@ -1,13 +1,18 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { OUTPUT_LIMIT, copy, closure, covers, irreducibles, coloring, withPigments, mixPigments, chainCount, rootSystem, layoutRootSystem, addRelation, removeNode, validate, arrange, constrainPosition, empty, example } from '../src/core.mjs';
+import { OUTPUT_LIMIT, CHAIN_HUE_DECAY, copy, closure, covers, irreducibles, coloring, withPigments, mixPigments, chainCount, rootSystem, layoutRootSystem, addRelation, removeNode, validate, arrange, constrainPosition, empty, example } from '../src/core.mjs';
 
 test('powersets use exactly their atoms as generators; bottom is white', () => {
   for (const size of [1, 2, 3]) {
     const model = example(`boolean${size}`), c = coloring(model);
     assert.deepEqual(c.generators, Array.from({ length: size }, (_, i) => `p${2 ** i}`));
     assert.equal(c.fills.get('p0'), '#ffffff');
-    for (let mask = 0; mask < 2 ** size; mask++) assert.deepEqual(c.hues.get(`p${mask}`), c.generators.filter((_, i) => mask & 2 ** i));
+    for (let mask = 0; mask < 2 ** size; mask++) {
+      const id = `p${mask}`, members = c.hues.get(id);
+      assert.deepEqual(members, c.generators.filter((_, i) => mask & 2 ** i));
+      assert.deepEqual(c.weights.get(id), members.map(() => 1));
+      assert.equal(c.fills.get(id), mixPigments(members.map(j => model.nodes.find(n => n.id === j).pigment)));
+    }
   }
 });
 
@@ -107,6 +112,26 @@ test('paint mixing is independent of ordering and preserves white and pure hues'
   assert.equal(mixPigments(['#d85555', '#397bd5', '#ebc33f']), mixPigments(['#ebc33f', '#d85555', '#397bd5']));
   assert.match(mixPigments(['#000000', '#ffffff']), /^#[0-9a-f]{6}$/);
   assert.equal(mixPigments(['#ffffff', '#ffffff']), '#ffffff');
+});
+
+test('chain colors favor higher generator hues without dropping any lower hues', () => {
+  const model = example('chain'), c = coloring(model);
+  assert.deepEqual(c.hues.get('p3'), ['p1', 'p2', 'p3']);
+  assert.deepEqual(c.weights.get('p3'), [CHAIN_HUE_DECAY ** 2, CHAIN_HUE_DECAY, 1]);
+  assert.deepEqual(c.weights.get('p0'), []); assert.equal(c.fills.get('p0'), '#ffffff');
+  const red = model.nodes[1].pigment, blue = model.nodes[2].pigment;
+  const distance = (a, b) => [1, 3, 5].reduce((sum, i) => sum + (parseInt(a.slice(i, i + 2), 16) - parseInt(b.slice(i, i + 2), 16)) ** 2, 0);
+  assert.ok(distance(c.fills.get('p2'), blue) < distance(mixPigments([red, blue]), blue));
+  assert.notEqual(c.fills.get('p2'), blue);
+});
+
+test('incomparable hues stay equally weighted beneath a new shared generator', () => {
+  const model = empty(); model.nodes = ['0', 'a', 'b', 'u', 'v'].map((id, i) => ({ id, label: id, x: i * 50, y: 0, pigment: null }));
+  model.edges = [['0', 'a'], ['0', 'b'], ['a', 'u'], ['b', 'u'], ['a', 'v'], ['b', 'v']];
+  const c = coloring(withPigments(model));
+  assert.deepEqual(c.weights.get('u'), [CHAIN_HUE_DECAY, CHAIN_HUE_DECAY, 1]);
+  assert.deepEqual(c.weights.get('v'), [CHAIN_HUE_DECAY, CHAIN_HUE_DECAY, 1]);
+  assert.deepEqual(c.weights.get('a'), [1]); assert.deepEqual(c.weights.get('b'), [1]);
 });
 
 test('edits reject cycles, preserve induced order on deletion, and maintain vertical order', () => {

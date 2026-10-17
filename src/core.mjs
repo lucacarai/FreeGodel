@@ -2,6 +2,7 @@ export const OUTPUT_LIMIT = 200;
 export const GAP = 44;
 export const copy = value => JSON.parse(JSON.stringify(value));
 export const PALETTE = ['#d85555', '#397bd5', '#ebc33f', '#37a58c', '#ac68c6', '#e58b40', '#6670bc', '#a17c58'];
+export const CHAIN_HUE_DECAY = .15;
 
 export function closure(model) {
   const ids = model.nodes.map(n => n.id), index = new Map(ids.map((id, i) => [id, i]));
@@ -49,17 +50,19 @@ export function withPigments(model) {
   return next;
 }
 
-// Equal pigment concentrations in a simplified Kubelka–Munk reflectance model.
+// Weighted pigment concentrations in a simplified Kubelka–Munk reflectance model.
 // Mix the complete set once, rather than recursively mixing pairwise results.
-export function mixPigments(hexes) {
+export function mixPigments(hexes, weights = hexes.map(() => 1)) {
   if (!hexes.length) return '#ffffff';
+  if (weights.length !== hexes.length || weights.some(w => !Number.isFinite(w) || w < 0) || !weights.some(w => w > 0)) throw Error('Pigment weights must be nonnegative, with a positive total.');
   if (hexes.length === 1) return hexes[0];
+  const totalWeight = weights.reduce((sum, w) => sum + w, 0);
   return '#' + [1, 3, 5].map(offset => {
-    const ks = hexes.reduce((sum, hex) => {
+    const ks = hexes.reduce((sum, hex, i) => {
       const v = parseInt(hex.slice(offset, offset + 2), 16) / 255;
       const r = Math.max(.0001, v <= .04045 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4);
-      return sum + (1 - r) ** 2 / (2 * r);
-    }, 0) / hexes.length;
+      return sum + weights[i] * (1 - r) ** 2 / (2 * r);
+    }, 0) / totalWeight;
     const r = 1 / (1 + ks + Math.sqrt(ks * ks + 2 * ks));
     const v = r <= .0031308 ? 12.92 * r : 1.055 * r ** (1 / 2.4) - .055;
     return Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16).padStart(2, '0');
@@ -69,8 +72,18 @@ export function mixPigments(hexes) {
 export function coloring(model, order = closure(model)) {
   const generators = irreducibles(model, order), byId = new Map(model.nodes.map(n => [n.id, n]));
   const hues = new Map(order.ids.map(id => [id, generators.filter(j => order.le(j, id))]));
-  const fills = new Map(order.ids.map(id => [id, mixPigments(hues.get(id).map(j => byId.get(j).pigment))]));
-  return { generators, hues, fills };
+  const weights = new Map(order.ids.map(id => {
+    const members = hues.get(id), depths = new Map();
+    function depth(j) {
+      if (!depths.has(j)) depths.set(j, Math.max(0, ...members.filter(k => k !== j && order.le(j, k)).map(k => 1 + depth(k))));
+      return depths.get(j);
+    }
+    // Only comparable generators suppress each other. In a powerset all
+    // generators are atoms, so every weight remains 1, preserving its colors.
+    return [id, members.map(j => CHAIN_HUE_DECAY ** depth(j))];
+  }));
+  const fills = new Map(order.ids.map(id => [id, mixPigments(hues.get(id).map(j => byId.get(j).pigment), weights.get(id))]));
+  return { generators, hues, weights, fills };
 }
 
 // Every chain has a unique minimum. Count by that minimum using ALL strict
