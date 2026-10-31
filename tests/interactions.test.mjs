@@ -150,6 +150,13 @@ test('hover links chains to their members and minimum; leaving restores pinned i
   assert.ok(point('input', 'p0').classList.contains('minimum'));
   assert.ok(point('input', 'p1').classList.contains('related'));
   assert.ok(point('input', 'p2').classList.contains('dim'));
+  for (const panel of ['input', 'output']) for (const node of $(panel + '-canvas').querySelectorAll('.point')) {
+    const backing = node.querySelector('.point-backing'), core = node.querySelector('.core');
+    assert.equal(backing.getAttribute('fill'), '#fafbf7');
+    assert.ok(Number(backing.getAttribute('r')) >= Number(core.getAttribute('r')) + .8);
+    assert.ok(node.children.indexOf(backing) < node.children.indexOf(core));
+    assert.equal(backing.getAttribute('opacity'), undefined);
+  }
   assert.match($('inspector-content').textContent, /Chain size: 3/);
   await chain.emit('keydown', { key: 'Enter' });
   await point('input', 'p2').emit('pointerenter');

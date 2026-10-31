@@ -109,7 +109,10 @@ function drawPanel(panel) {
     const minimum = panel === 'input' ? n.id : n.minimum;
     const text = panel === 'input' ? n.label : chainText(n.chain);
     const group = svgEl('g', { class: 'point', transform: `translate(${n.x} ${n.y})`, 'data-id': n.id, role: 'button', tabindex: 0, 'aria-label': `${panel === 'input' ? 'Point' : 'Chain'} ${text}` });
-    group.append(svgEl('title', {}, text), svgEl('circle', { r: 21, class: 'hit' }), svgEl('circle', { r: 17, class: 'ring' }), svgEl('circle', { r: 22, class: 'minimum-ring' }), svgEl('circle', { r: 9.5, fill: colors.fills.get(minimum), class: 'core' }));
+    group.append(svgEl('title', {}, text), svgEl('circle', { r: 21, class: 'hit' }), svgEl('circle', { r: 17, class: 'ring' }), svgEl('circle', { r: 22, class: 'minimum-ring' }));
+    // Keep an opaque backing beneath the faded fill and its outline so edges
+    // cannot show through a dot, including unrelated edges crossing behind it.
+    group.append(svgEl('circle', { r: 10.3, fill: '#fafbf7', class: 'point-backing', 'pointer-events': 'none' }), svgEl('circle', { r: 9.5, fill: colors.fills.get(minimum), class: 'core' }));
     if ((panel === 'input' && $('input-labels').checked) || (panel === 'output' && $('chain-labels').checked)) {
       group.append(svgEl('text', { x: 15, y: -14 }, text));
     }
@@ -327,7 +330,7 @@ async function downloadPng(panel) {
     const clone = svg.cloneNode(true); clone.setAttribute('xmlns', NS); clone.setAttribute('viewBox', `${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}`); clone.setAttribute('width', bounds.width); clone.setAttribute('height', bounds.height);
     clone.querySelectorAll('defs, .canvas-bg, .hit, .ring, .minimum-ring, .edge-hit, #order-preview, title').forEach(n => n.remove());
     clone.querySelectorAll('.point').forEach(n => n.setAttribute('class', 'point')); clone.querySelectorAll('.edge').forEach(n => n.setAttribute('class', 'edge'));
-    const style = svgEl('style', {}, '.edge{stroke:#80917a;stroke-width:1.8}.core{stroke:#536a50;stroke-width:1.6}.point text{font:italic 14px Georgia,serif;fill:#4e6549;paint-order:stroke;stroke:#fff;stroke-width:4px;stroke-linejoin:round}');
+    const style = svgEl('style', {}, '.edge{stroke:#80917a;stroke-width:1.8}.point-backing{fill:#fff}.core{stroke:#536a50;stroke-width:1.6}.point text{font:italic 14px Georgia,serif;fill:#4e6549;paint-order:stroke;stroke:#fff;stroke-width:4px;stroke-linejoin:round}');
     clone.prepend(style, svgEl('rect', { ...bounds, fill: '#ffffff' }));
     url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(clone)], { type: 'image/svg+xml;charset=utf-8' }));
     const image = new Image(); await new Promise((resolve, reject) => { image.onload = resolve; image.onerror = () => reject(Error('Could not render the PNG.')); image.src = url; });
