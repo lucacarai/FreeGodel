@@ -166,6 +166,35 @@ test('hover links chains to their members and minimum; leaving restores pinned i
   assert.ok(point('input', 'p0').classList.contains('minimum'));
 });
 
+test('output chains draw black consecutive segments over skipped input points without editing the poset', async () => {
+  const model = core.example('chain5');
+  model.nodes.forEach((node, i) => { node.x = 100; node.y = 400 - i * 80; });
+  const { $, point, stored } = launch(model), before = stored();
+  const svg = $('input-canvas'), overlay = svg.querySelector('.chain-overlay');
+  assert.ok(svg.children.indexOf(overlay) > svg.children.indexOf(svg.querySelector('.points')));
+  assert.equal(overlay.getAttribute('stroke'), '#000');
+  assert.equal(overlay.getAttribute('pointer-events'), 'none');
+  assert.equal(overlay.children.length, 0);
+  const chain = point('output', '["p0","p2","p4"]');
+  await chain.emit('pointerenter');
+  const segments = overlay.querySelectorAll('line');
+  assert.deepEqual(segments.map(n => [n.dataset.a, n.dataset.b]), [['p0', 'p2'], ['p2', 'p4']]);
+  assert.equal(Number(segments[0].getAttribute('x1')), 100);
+  assert.equal(Number(segments[0].getAttribute('y1')), 389.7);
+  assert.equal(Number(segments[0].getAttribute('y2')), 250.3);
+  assert.ok(point('input', 'p1').classList.contains('dim'));
+  assert.ok(point('input', 'p3').classList.contains('dim'));
+  await chain.emit('pointerleave'); assert.equal(overlay.children.length, 0);
+  await chain.emit('keydown', { key: 'Enter' }); assert.equal(overlay.children.length, 2);
+  await point('input', 'p1').emit('pointerenter'); assert.equal(overlay.children.length, 0);
+  await point('input', 'p1').emit('pointerleave'); assert.equal(overlay.children.length, 2);
+  await point('output', '["p0","p1"]').emit('pointerenter');
+  assert.deepEqual(overlay.children.map(n => [n.dataset.a, n.dataset.b]), [['p0', 'p1']]);
+  await point('output', '["p0"]').emit('pointerenter'); assert.equal(overlay.children.length, 0);
+  await $('clear-selection').emit('click'); assert.equal(overlay.children.length, 0);
+  assert.deepEqual(stored(), before); assert.equal($('undo').disabled, true);
+});
+
 test('repeated hover preserves canvas elements and viewboxes and shows no inspector hue chips', async () => {
   const { $, point } = launch(), input = point('input', 'p1'), output = point('output', '["p0","p1","p3"]');
   const inputView = $('input-canvas').getAttribute('viewBox'), outputView = $('output-canvas').getAttribute('viewBox');

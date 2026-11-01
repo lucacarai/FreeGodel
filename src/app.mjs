@@ -151,10 +151,28 @@ function setHover(value) {
 }
 function refreshInteraction() {
   const active = info(), members = new Set(), outputPath = new Set(); let minimum = null;
+  const chainLayer = canvases.input.querySelector('.chain-overlay');
+  chainLayer.replaceChildren();
   if (active?.panel === 'input' && inputNode(active.id)) { members.add(active.id); minimum = active.id; }
   if (active?.panel === 'output') {
     const chain = outputNode(active.id)?.chain;
-    if (chain) { chain.forEach(id => members.add(id)); minimum = chain[0]; for (let i = 0; i < chain.length; i++) outputPath.add(JSON.stringify(chain.slice(i))); }
+    if (chain) {
+      chain.forEach(id => members.add(id)); minimum = chain[0];
+      for (let i = 0; i < chain.length; i++) outputPath.add(JSON.stringify(chain.slice(i)));
+      // Draw above the input points, including any skipped points on a segment.
+      // Trim each end to keep the chain's own dots unobscured.
+      for (let i = 1; i < chain.length; i++) {
+        const a = inputNode(chain[i - 1]), b = inputNode(chain[i]);
+        const dx = b.x - a.x, dy = b.y - a.y, length = Math.hypot(dx, dy);
+        if (length <= 20.6) continue;
+        const inset = 10.3 / length;
+        chainLayer.append(svgEl('line', {
+          x1: a.x + dx * inset, y1: a.y + dy * inset,
+          x2: b.x - dx * inset, y2: b.y - dy * inset,
+          'data-a': a.id, 'data-b': b.id
+        }));
+      }
+    }
   }
   for (const [panel, svg] of Object.entries(canvases)) {
     for (const g of svg.querySelectorAll('.point')) {
@@ -328,7 +346,7 @@ async function downloadPng(panel) {
     const svg = canvases[panel], box = svg.querySelector('.points').getBBox();
     const bounds = { x: box.x - 30, y: box.y - 30, width: Math.ceil(box.width + 60), height: Math.ceil(box.height + 60) };
     const clone = svg.cloneNode(true); clone.setAttribute('xmlns', NS); clone.setAttribute('viewBox', `${bounds.x} ${bounds.y} ${bounds.width} ${bounds.height}`); clone.setAttribute('width', bounds.width); clone.setAttribute('height', bounds.height);
-    clone.querySelectorAll('defs, .canvas-bg, .hit, .ring, .minimum-ring, .edge-hit, #order-preview, title').forEach(n => n.remove());
+    clone.querySelectorAll('defs, .canvas-bg, .hit, .ring, .minimum-ring, .edge-hit, .chain-overlay, #order-preview, title').forEach(n => n.remove());
     clone.querySelectorAll('.point').forEach(n => n.setAttribute('class', 'point')); clone.querySelectorAll('.edge').forEach(n => n.setAttribute('class', 'edge'));
     const style = svgEl('style', {}, '.edge{stroke:#80917a;stroke-width:1.8}.point-backing{fill:#fff}.core{stroke:#536a50;stroke-width:1.6}.point text{font:italic 14px Georgia,serif;fill:#4e6549;paint-order:stroke;stroke:#fff;stroke-width:4px;stroke-linejoin:round}');
     clone.prepend(style, svgEl('rect', { ...bounds, fill: '#ffffff' }));
