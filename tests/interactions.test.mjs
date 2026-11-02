@@ -147,6 +147,8 @@ test('canvas resize reflows components without changing the input, history, or p
 test('hover links chains to their members and minimum; leaving restores pinned inspection', async () => {
   const { $, point } = launch(); const chain = point('output', JSON.stringify(['p0', 'p1', 'p3']));
   await chain.emit('pointerenter');
+  assert.deepEqual($('output-canvas').querySelectorAll('.related').map(n => n.dataset.id), [chain.dataset.id]);
+  assert.equal($('output-canvas').querySelectorAll('.active').length, 0);
   assert.ok(point('input', 'p0').classList.contains('minimum'));
   assert.ok(point('input', 'p1').classList.contains('related'));
   assert.ok(point('input', 'p2').classList.contains('dim'));
@@ -159,6 +161,13 @@ test('hover links chains to their members and minimum; leaving restores pinned i
   }
   assert.match($('inspector-content').textContent, /Chain size: 3/);
   await chain.emit('keydown', { key: 'Enter' });
+  const otherChain = point('output', '["p2","p3"]');
+  await otherChain.emit('pointerenter');
+  assert.deepEqual($('output-canvas').querySelectorAll('.related').map(n => n.dataset.id), [otherChain.dataset.id]);
+  assert.equal($('output-canvas').querySelectorAll('.pinned').length, 0);
+  assert.equal($('output-canvas').querySelectorAll('.active').length, 0);
+  await otherChain.emit('pointerleave');
+  assert.ok(chain.classList.contains('pinned'));
   await point('input', 'p2').emit('pointerenter');
   assert.ok(point('output', JSON.stringify(['p2', 'p3'])).classList.contains('related'));
   await point('input', 'p2').emit('pointerleave');

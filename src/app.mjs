@@ -150,7 +150,7 @@ function setHover(value) {
   hover = value; refreshInteraction();
 }
 function refreshInteraction() {
-  const active = info(), members = new Set(), outputPath = new Set(); let minimum = null;
+  const active = info(), members = new Set(); let minimum = null;
   const chainLayer = canvases.input.querySelector('.chain-overlay');
   chainLayer.replaceChildren();
   if (active?.panel === 'input' && inputNode(active.id)) { members.add(active.id); minimum = active.id; }
@@ -158,7 +158,6 @@ function refreshInteraction() {
     const chain = outputNode(active.id)?.chain;
     if (chain) {
       chain.forEach(id => members.add(id)); minimum = chain[0];
-      for (let i = 0; i < chain.length; i++) outputPath.add(JSON.stringify(chain.slice(i)));
       // Draw above the input points, including any skipped points on a segment.
       // Trim each end to keep the chain's own dots unobscured.
       for (let i = 1; i < chain.length; i++) {
@@ -178,16 +177,16 @@ function refreshInteraction() {
   for (const [panel, svg] of Object.entries(canvases)) {
     for (const g of svg.querySelectorAll('.point')) {
       const id = g.dataset.id, n = panel === 'output' ? outputNode(id) : null;
-      const related = panel === 'input' ? members.has(id) : active?.panel === 'input' ? n.minimum === minimum : outputPath.has(id);
+      const related = panel === 'input' ? members.has(id) : active?.panel === 'input' ? n.minimum === minimum : id === active?.id;
       g.classList.toggle('related', !!active && related);
       g.classList.toggle('dim', !!active && !related);
       g.classList.toggle('minimum', panel === 'input' && !!active && id === minimum);
-      g.classList.toggle('pinned', selected?.panel === panel && selected.id === id);
+      g.classList.toggle('pinned', selected?.panel === panel && selected.id === id && !(panel === 'output' && hover?.panel === 'output' && hover.id !== id));
       g.classList.toggle('source', panel === 'input' && source === id);
     }
     for (const line of svg.querySelectorAll('.edge')) {
       const a = line.dataset.a, b = line.dataset.b;
-      const related = panel === 'input' ? members.has(a) && members.has(b) : outputPath.has(a) && outputPath.has(b);
+      const related = panel === 'input' && members.has(a) && members.has(b);
       line.classList.toggle('dim', !!active && !related);
       line.classList.toggle('active', !!active && related);
       line.classList.toggle('selected', panel === 'input' && selected?.type === 'edge' && selected.a === a && selected.b === b);
