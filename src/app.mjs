@@ -169,6 +169,7 @@ function refreshInteraction() {
         chainLayer.append(svgEl('line', {
           x1: a.x + dx * inset, y1: a.y + dy * inset,
           x2: b.x - dx * inset, y2: b.y - dy * inset,
+          'vector-effect': 'non-scaling-stroke',
           'data-a': a.id, 'data-b': b.id
         }));
       }
